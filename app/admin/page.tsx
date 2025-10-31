@@ -1,0 +1,331 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useAuth } from "@/providers/AuthProvider";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Shield,
+  AlertCircle,
+  Users,
+  Package,
+  Calendar,
+  DollarSign,
+  Clock,
+  CheckCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export default function AdminDashboard() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalPackages: 0,
+    totalBookings: 0,
+    totalRevenue: 0,
+    pendingBookings: 0,
+    activePackages: 0,
+  });
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (!user) {
+      router.push("/auth/login");
+      return;
+    }
+
+    if (user.role !== "admin") {
+      setAccessDenied(true);
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1500);
+    }
+  }, [user, loading, router]);
+
+  useEffect(() => {
+    if (!user || user.role !== "admin") return;
+
+    const fetchAdminStats = async () => {
+      try {
+        setLoadingStats(true);
+        const token = localStorage.getItem("auth-token");
+        if (!token) {
+          router.push("/auth/login");
+          return;
+        }
+
+        const response = await fetch("/api/admin/stats", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.stats) {
+            setStats(data.stats);
+          }
+        } else if (response.status === 401 || response.status === 403) {
+          router.push("/auth/login");
+        }
+      } catch (error) {
+        console.error("Failed to fetch admin stats:", error);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    fetchAdminStats();
+  }, [user, router]);
+
+  if (loading || loadingStats) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-20 w-20 sm:h-32 sm:w-32 border-b-2 border-cyan-400 mx-auto"></div>
+          <p className="text-white/70 mt-4 text-sm sm:text-base">
+            {loading ? "Verifying credentials..." : "Loading dashboard..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (accessDenied || (user && user.role !== "admin")) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="glass border-red-500/20 max-w-md w-full">
+          <CardHeader className="text-center">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-red-400" />
+            </div>
+            <CardTitle className="text-xl sm:text-2xl font-bold text-red-400">
+              Access Denied
+            </CardTitle>
+            <CardDescription className="text-white/70 text-sm sm:text-base">
+              You don't have permission to access this page
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+              <p className="text-white/80 text-xs sm:text-sm">
+                This area is restricted to administrators only.
+                {user &&
+                  user.role === "user" &&
+                  " Redirecting to your dashboard..."}
+              </p>
+            </div>
+            <Button
+              onClick={() => router.push(user ? "/dashboard" : "/auth/login")}
+              className="w-full bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700 text-sm sm:text-base"
+            >
+              {user ? "Go to Dashboard" : "Go to Login"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Welcome Section */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-400 flex-shrink-0" />
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white">
+            Admin Dashboard
+          </h2>
+          <p className="text-slate-400 mt-1 text-xs sm:text-base">
+            Manage your travel agency operations
+          </p>
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <Card className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border-cyan-500/20">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-xs sm:text-sm font-medium">
+                  Total Users
+                </p>
+                <h3 className="text-3xl sm:text-4xl font-bold text-cyan-400 mt-2">
+                  {stats.totalUsers}
+                </h3>
+              </div>
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-cyan-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <Users className="w-6 h-6 sm:w-7 sm:h-7 text-cyan-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-xs sm:text-sm font-medium">
+                  Active Packages
+                </p>
+                <h3 className="text-3xl sm:text-4xl font-bold text-purple-400 mt-2">
+                  {stats.activePackages}
+                </h3>
+              </div>
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-purple-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <Package className="w-6 h-6 sm:w-7 sm:h-7 text-purple-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-xs sm:text-sm font-medium">
+                  Total Bookings
+                </p>
+                <h3 className="text-3xl sm:text-4xl font-bold text-green-400 mt-2">
+                  {stats.totalBookings}
+                </h3>
+              </div>
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-green-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-6 h-6 sm:w-7 sm:h-7 text-green-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-xs sm:text-sm font-medium">
+                  Total Revenue
+                </p>
+                <h3 className="text-2xl sm:text-4xl font-bold text-orange-400 mt-2">
+                  KSh {stats.totalRevenue.toLocaleString()}
+                </h3>
+              </div>
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-orange-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <DollarSign className="w-6 h-6 sm:w-7 sm:h-7 text-orange-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 border-yellow-500/20">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-xs sm:text-sm font-medium">
+                  Pending Bookings
+                </p>
+                <h3 className="text-3xl sm:text-4xl font-bold text-yellow-400 mt-2">
+                  {stats.pendingBookings}
+                </h3>
+              </div>
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-yellow-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <Clock className="w-6 h-6 sm:w-7 sm:h-7 text-yellow-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-xs sm:text-sm font-medium">
+                  Completion Rate
+                </p>
+                <h3 className="text-3xl sm:text-4xl font-bold text-emerald-400 mt-2">
+                  {stats.totalBookings > 0
+                    ? Math.round(
+                        ((stats.totalBookings - stats.pendingBookings) /
+                          stats.totalBookings) *
+                          100
+                      )
+                    : 0}
+                  %
+                </h3>
+              </div>
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-emerald-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
+      <Card className="bg-slate-800/50 border-slate-700/50">
+        <CardHeader>
+          <CardTitle className="text-white text-lg sm:text-xl">
+            Quick Actions
+          </CardTitle>
+          <CardDescription className="text-slate-400 text-xs sm:text-sm">
+            Common administrative tasks
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <Button
+              onClick={() => router.push("/admin/packages")}
+              className="h-auto flex-col gap-2 sm:gap-3 py-4 sm:py-6 bg-slate-700/50 hover:bg-slate-700 border border-slate-600"
+            >
+              <Package className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400" />
+              <span className="text-white font-medium text-xs sm:text-base">
+                Manage Packages
+              </span>
+            </Button>
+            <Button
+              onClick={() => router.push("/admin/bookings")}
+              className="h-auto flex-col gap-2 sm:gap-3 py-4 sm:py-6 bg-slate-700/50 hover:bg-slate-700 border border-slate-600"
+            >
+              <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-green-400" />
+              <span className="text-white font-medium text-xs sm:text-base">
+                View Bookings
+              </span>
+            </Button>
+            <Button
+              onClick={() => router.push("/admin/users")}
+              className="h-auto flex-col gap-2 sm:gap-3 py-4 sm:py-6 bg-slate-700/50 hover:bg-slate-700 border border-slate-600"
+            >
+              <Users className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-400" />
+              <span className="text-white font-medium text-xs sm:text-base">
+                Manage Users
+              </span>
+            </Button>
+            <Button
+              onClick={() => router.push("/admin/analytics")}
+              className="h-auto flex-col gap-2 sm:gap-3 py-4 sm:py-6 bg-slate-700/50 hover:bg-slate-700 border border-slate-600"
+            >
+              <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-orange-400" />
+              <span className="text-white font-medium text-xs sm:text-base">
+                View Analytics
+              </span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
